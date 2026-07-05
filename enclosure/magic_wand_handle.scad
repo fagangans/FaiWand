@@ -41,6 +41,8 @@ flange_out        = 6;   // seberapa jauh flange menjorok keluar dari permukaan 
 flange_deep       = 4;   // panjang flange di tiap sisi sambungan (Y)
 tab_h             = 5;   // tinggi flange (Z)
 screw_hole_clear  = 2.3;
+countersink_d     = 4.2;  // diameter corong tempat kepala sekrup duduk rata
+countersink_depth = 1.6;  // kedalaman corong (sesuaikan dgn tinggi kepala sekrup kamu)
 screw_hole_pilot  = 1.6;
 
 screw_z_positions = (STYLE == 1)
@@ -107,9 +109,14 @@ module screw_hole_bottom(z_pos) {
 
 module screw_hole_top(z_pos) {
     r_here = outer_r(z_pos);
+    // lubang tembus utama (clearance, sekrup lewat bebas)
     translate([r_here + flange_out/2, -1, z_pos])
         rotate([-90, 0, 0])
             cylinder(h = flange_deep + 2, d = screw_hole_clear);
+    // countersink: corong kecil di ujung luar flange, biar kepala sekrup rata/tersembunyi
+    translate([r_here + flange_out/2, flange_deep + 0.5, z_pos])
+        rotate([-90, 0, 0])
+            cylinder(h = countersink_depth, d1 = countersink_d, d2 = screw_hole_clear);
 }
 
 module ringed_hollow_body() {
