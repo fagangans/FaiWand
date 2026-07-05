@@ -1,7 +1,13 @@
 // ai_client.h — kirim event gesture ke AI lokal (speech-to-speech/speech-to-text)
-// via HTTP POST JSON di jaringan lokal (LAN), dan terima respons teks untuk ditampilkan di OLED.
+// via HTTP POST JSON di jaringan lokal (LAN). Server balas teks (untuk OLED)
+// DAN url audio hasil TTS (untuk distreaming & dimainkan lewat speaker ESP32).
 #pragma once
 #include <Arduino.h>
+
+struct AiReply {
+  String text;      // teks singkat untuk ditampilkan di OLED
+  String audioUrl;   // url absolut ke file mp3 hasil TTS server, kosong kalau tidak ada
+};
 
 class AiClient {
  public:
@@ -10,10 +16,8 @@ class AiClient {
   void disconnectWifi();
   bool isWifiConnected();
 
-  // Kirim nama gesture ke AI lokal, dapatkan balasan teks untuk ditampilkan di OLED.
-  // AI lokal yang menangani sendiri urusan speech-to-speech/TTS di sisi servernya;
-  // ESP32 hanya perlu teks ringkas untuk tampilan.
+  // Kirim nama gesture ke AI lokal, dapatkan balasan (teks + url audio).
   // Return false kalau request gagal (WiFi mati, server tidak terjangkau, dsb) -> caller
   // boleh fallback tampilkan pesan offline di OLED.
-  bool sendGesture(const char *gestureName, String &outResponse);
+  bool sendGesture(const char *gestureName, AiReply &outReply);
 };

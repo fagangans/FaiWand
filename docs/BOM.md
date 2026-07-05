@@ -14,8 +14,10 @@
 | 10 | Breadboard mini (opsional, untuk prototyping) | 400/800 titik | 8.000 – 15.000 | Bisa dilepas setelah pindah ke solder permanen |
 | 11 | Casing/tongkat | Lihat docs/ENCLOSURE.md | Variatif | PVC pipe, 3D print, atau tongkat kayu bekas |
 | 12 | OLED SSD1306 0.96" I2C | 128x64, alamat default 0x3C | 15.000 – 25.000 | Dipakai untuk tampilkan nama gesture & respons teks dari AI lokal |
+| 13 | Amplifier I2S MAX98357A | Modul mono class-D, ~3W | 12.000 – 20.000 | Untuk memutar suara AI (TTS) yang di-streaming dari server, langsung di tongkat |
+| 14 | Speaker mini | 4Ω atau 8Ω, 2-3W, diameter ~20-28mm | 8.000 – 20.000 | Sesuaikan diameter dengan ruang yang tersedia di enclosure |
 
-**Total estimasi (dengan OLED, tanpa casing 3D print):** sekitar **Rp 115.000 – 185.000**
+**Total estimasi (dengan OLED + speaker, tanpa casing 3D print):** sekitar **Rp 135.000 – 225.000**
 
 ## Catatan Pemilihan Komponen
 
@@ -23,3 +25,4 @@
 - **MPU6050** adalah alternatif termurah dari sensor IMU yang dipakai Google (yang aslinya pakai sensor built-in Arduino Nano 33 BLE Sense). Akurasi cukup untuk gesture classification.
 - Kalau nanti mau upgrade ke **WS2812 (NeoPixel)** hanya butuh 1 GPIO data + resistor 300-500Ω di jalur data + kapasitor 100-1000uF di power — tapi kode `led_effects.cpp` perlu diganti untuk pakai library `Adafruit_NeoPixel` alih-alih `analogWrite`.
 - **TP4056 dengan proteksi** itu wajib, bukan opsional — versi tanpa proteksi bisa merusak baterai LiPo kalau over-discharge.
+- **MAX98357A** dipilih karena paling murah & gampang diintegrasikan (I2S langsung dari ESP32, tanpa DAC eksternal terpisah). Suara AI (hasil TTS server) di-streaming lewat WiFi dan dimainkan langsung di tongkat, bukan di komputer server — lihat `docs/WIRING.md` untuk pin I2S.

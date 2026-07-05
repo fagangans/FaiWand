@@ -41,7 +41,7 @@ bool AiClient::isWifiConnected() {
   return WiFi.status() == WL_CONNECTED;
 }
 
-bool AiClient::sendGesture(const char *gesture, String &outResponse) {
+bool AiClient::sendGesture(const char *gesture, AiReply &outReply) {
   if (!isWifiConnected()) return false;
 
   // Resolusi host AI lokal: kalau berformat mDNS ("xxx.local"), query IP-nya dulu.
@@ -59,8 +59,8 @@ bool AiClient::sendGesture(const char *gesture, String &outResponse) {
     host = resolvedIp.toString();
   }
 
-  String url = String(LOCAL_AI_USE_HTTPS ? "https://" : "http://") + host + ":" +
-               String(LOCAL_AI_PORT) + LOCAL_AI_PATH;
+  String baseUrl = String(LOCAL_AI_USE_HTTPS ? "https://" : "http://") + host + ":" + String(LOCAL_AI_PORT);
+  String url = baseUrl + LOCAL_AI_PATH;
 
   HTTPClient http;
   if (!http.begin(url)) {
@@ -88,8 +88,8 @@ bool AiClient::sendGesture(const char *gesture, String &outResponse) {
   String respBody = http.getString();
   http.end();
 
-  // Respons diharapkan: {"text": "..."} — sesuaikan key ini dengan output server AI lokal kamu
-  // kalau berbeda (misal server memisahkan field "reply" atau "message").
+  // Respons diharapkan: {"text": "...", "audio_url": "/audio/xxx.mp3"} — sesuaikan key
+  // ini dengan output server AI lokal kamu kalau berbeda.
   StaticJsonDocument<512> respDoc;
   DeserializationError err = deserializeJson(respDoc, respBody);
   if (err) {
@@ -97,7 +97,15 @@ bool AiClient::sendGesture(const char *gesture, String &outResponse) {
   }
 
   const char *text = respDoc["text"] | "";
-  outResponse = String(text);
-  outResponse.trim();
-  return outResponse.length() > 0;
+  outReply.text = String(text);
+  outReply.text.trim();
+
+  const char *audioUrl = respDoc["audio_url"] | "";
+  outReply.audioUrl = String(audioUrl);
+  if (outReply.audioUrl.length() > 0 && !outReply.audioUrl.startsWith("http")) {
+    // server balas path relatif ("/audio/xxx.mp3") -> gabung dengan base url
+    outReply.audioUrl = baseUrl + outReply.audioUrl;
+  }
+
+  return outReply.text.length() > 0;
 }

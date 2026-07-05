@@ -22,6 +22,16 @@
 #define OLED_HEIGHT         64
 #define OLED_I2C_ADDR       0x3C
 
+// ---------- Speaker (I2S, MAX98357A amp + speaker mini) ----------
+// Suara AI di-generate & di-TTS di server (dinamis, beda tiap gesture),
+// lalu ESP32 STREAMING file audio itu lewat WiFi dan mainkan langsung via
+// I2S -- ESP32 sendiri tidak generate suara apapun.
+#define SPEAKER_ENABLED     true
+#define PIN_I2S_BCLK        14
+#define PIN_I2S_LRC         32
+#define PIN_I2S_DOUT        13
+#define SPEAKER_VOLUME      12   // skala 0-21 (library ESP32-audioI2S)
+
 // ---------- Sampling gesture ----------
 #define SAMPLE_RATE_HZ         100     // frekuensi sampling accel/gyro
 #define GESTURE_WINDOW_MS      1000    // panjang jendela sampel per gesture (harus sama dgn training Edge Impulse)

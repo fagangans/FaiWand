@@ -21,6 +21,7 @@
 #include "led_effects.h"
 #include "oled_display.h"
 #include "ai_client.h"
+#include "audio_player.h"
 #include "power_manager.h"
 
 Mpu6050Sensor sensor;
@@ -28,6 +29,7 @@ GestureClassifier classifier;
 LedEffects leds;
 OledDisplay oled;
 AiClient ai;
+AudioPlayer speaker;
 PowerManager power;
 
 enum class State { IDLE, CAPTURING, CLASSIFYING };
@@ -68,6 +70,8 @@ void setup() {
     Serial.println("[Warn] OLED tidak terdeteksi, lanjut tanpa tampilan OLED.");
 #endif
   }
+
+  speaker.begin();
 
 #if DEBUG_PRINT
   Serial.println("[Setup] Selesai. Siap deteksi gesture.");
@@ -129,14 +133,35 @@ void loop() {
       if (shouldTriggerAI(g)) {
         oled.showMessage("Menghubungi AI...", "");
         if (ai.connectWifi()) {
-          String response;
-          if (ai.sendGesture(gestureName(g), response)) {
+          AiReply reply;
+          if (ai.sendGesture(gestureName(g), reply)) {
 #if DEBUG_PRINT
             Serial.print("[AI] Respons: ");
-            Serial.println(response);
+            Serial.println(reply.text);
 #endif
-            oled.showAiResponse(response.c_str());
-            delay(3000); // beri waktu baca teks di OLED sebelum kembali idle
+            oled.showAiResponse(reply.text.c_str());
+
+            if (reply.audioUrl.length() > 0) {
+#if DEBUG_PRINT
+              Serial.print("[Audio] Streaming: ");
+              Serial.println(reply.audioUrl);
+#endif
+              if (speaker.playUrl(reply.audioUrl)) {
+                // WiFi WAJIB tetap nyala selama audio streaming -- jangan
+                // disconnectWifi() sebelum playback selesai.
+                uint32_t playStart = millis();
+                while (speaker.isPlaying() && millis() - playStart < 20000) {
+                  speaker.loop();
+                }
+              } else {
+#if DEBUG_PRINT
+                Serial.println("[Audio] Gagal mulai streaming, lanjut tanpa suara.");
+#endif
+                delay(3000); // fallback: beri waktu baca teks di OLED saja
+              }
+            } else {
+              delay(3000); // tidak ada audio_url dari server, cukup tampilkan teks
+            }
           } else {
 #if DEBUG_PRINT
             Serial.println("[AI] Gagal mendapat respons (cek koneksi/server AI lokal).");
@@ -145,7 +170,7 @@ void loop() {
             oled.showMessage("AI tidak merespons", "Cek server lokal");
             delay(1500);
           }
-          ai.disconnectWifi(); // matikan WiFi lagi untuk hemat daya
+          ai.disconnectWifi(); // matikan WiFi lagi untuk hemat daya (setelah audio selesai)
         } else {
 #if DEBUG_PRINT
           Serial.println("[AI] Gagal connect WiFi.");

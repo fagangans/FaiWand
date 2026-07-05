@@ -14,3 +14,4 @@ firmware/**/ei-*.zip
 # Server AI lokal (Node.js)
 server/node_modules/
 server/.env
+server/public/audio/*.mp3

@@ -23,6 +23,13 @@
                        │                   │
         Tombol BOOT ───┤ GPIO0 (bawaan board, tidak perlu wiring tambahan)
                        │                   │
+        MAX98357A BCLK ┤ GPIO14            │
+        MAX98357A LRC  ┤ GPIO32            │
+        MAX98357A DIN  ┤ GPIO13            │
+        MAX98357A VIN  ┤ VIN (bukan 3V3 -- amp butuh daya lebih untuk speaker) │
+        MAX98357A GND  ┤ GND               │
+        MAX98357A GAIN ┤ (lihat catatan di bawah)                              │
+                       │                   │
         Baterai LiPo ──┤ VIN / 5V (via TP4056 OUT+) │
                        │ GND (via TP4056 OUT-)       │
                        └───────────────────┘
@@ -70,6 +77,28 @@ pull-up modul (cabut satu resistor 4.7kΩ di salah satu breakout) supaya tidak d
 
 ### Push button (opsional, mode training/manual trigger)
 Bisa pakai tombol **BOOT** bawaan board (GPIO0) — tidak perlu wiring tambahan, cukup dibaca lewat `digitalRead(PIN_BUTTON)` (active LOW).
+
+### Speaker (I2S, MAX98357A + speaker mini)
+| MAX98357A Pin | ESP32 Pin | Keterangan |
+|---|---|---|
+| VIN | VIN (bukan 3V3) | Amplifier butuh daya lebih besar untuk menggerakkan speaker; 3V3 regulator ESP32 tidak cukup kuat |
+| GND | GND | |
+| BCLK | GPIO14 | I2S bit clock |
+| LRC | GPIO32 | I2S word select (L/R clock) |
+| DIN | GPIO13 | I2S data in (audio digital dari ESP32 ke amp) |
+| GAIN | Floating (default) atau ke GND (gain lebih tinggi) — sesuaikan dengan volume speaker yang diinginkan | |
+| SD | Floating (aktif) atau ke GND lewat resistor kalau mau kontrol shutdown manual | |
+| Speaker + / - | Ke speaker mini 4-8Ω | Polaritas tidak terlalu kritis untuk speaker mono kecil |
+
+> ⚠️ **Penting**: MAX98357A disambung ke **VIN** (bukan 3V3) karena perlu daya lebih untuk
+> menggerakkan speaker dengan volume cukup. Pastikan baterai/boost converter (MT3608) yang
+> sudah ada mampu suplai arus tambahan ini (~500mA-1A saat volume tinggi) — kalau baterai
+> kamu kecil (300-400mAh), daya tahan akan berkurang signifikan saat audio sering diputar.
+
+### Jendela speaker di enclosure
+Karena speaker perlu suara bisa keluar, enclosure gagang perlu **lubang-lubang kecil (grille)**
+di dekat posisi speaker dipasang. Ini belum ada di file `.scad` bawaan — perlu ditambahkan
+manual sesuai posisi speaker kamu pasang nanti.
 
 ## Diagram visual (disarankan)
 Untuk diagram visual grafis (bukan teks), gunakan [Wokwi](https://wokwi.com) — sudah ada simulator ESP32 + MPU6050 online, gratis, dan bisa langsung simulasikan sebagian logic (I2C, LED) sebelum wiring fisik. Cari template "ESP32 MPU6050" di Wokwi sebagai starting point lalu sesuaikan pin sesuai tabel di atas.
