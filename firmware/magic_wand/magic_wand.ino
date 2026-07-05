@@ -9,8 +9,9 @@
 //  6. Jika idle terlalu lama, masuk deep sleep; bangun otomatis saat ada motion (interrupt MPU6050).
 //
 // Sebelum upload, siapkan:
-//  - Copy secrets.h.example -> secrets.h dan isi WiFi + API key
-//  - Install library: Adafruit MPU6050, Adafruit Unified Sensor, ArduinoJson
+//  - Copy secrets.h.example -> secrets.h dan isi WiFi + alamat server AI lokal
+//  - Install library: Adafruit MPU6050, Adafruit Unified Sensor, Adafruit SSD1306,
+//    Adafruit GFX Library, ArduinoJson
 //  - (Opsional) install library hasil export Edge Impulse, lalu set USE_EDGE_IMPULSE_MODEL=1
 //    di gesture_classifier.h
 
@@ -18,12 +19,14 @@
 #include "mpu6050_sensor.h"
 #include "gesture_classifier.h"
 #include "led_effects.h"
+#include "oled_display.h"
 #include "ai_client.h"
 #include "power_manager.h"
 
 Mpu6050Sensor sensor;
 GestureClassifier classifier;
 LedEffects leds;
+OledDisplay oled;
 AiClient ai;
 PowerManager power;
 
@@ -60,6 +63,12 @@ void setup() {
   sensor.configureMotionInterrupt();
   classifier.begin();
 
+  if (!oled.begin()) {
+#if DEBUG_PRINT
+    Serial.println("[Warn] OLED tidak terdeteksi, lanjut tanpa tampilan OLED.");
+#endif
+  }
+
 #if DEBUG_PRINT
   Serial.println("[Setup] Selesai. Siap deteksi gesture.");
 #endif
@@ -95,6 +104,7 @@ void loop() {
 #endif
       } else if (power.shouldSleep()) {
         leds.off();
+        oled.showMessage("Tidur...", "Gerakkan utk bangun");
         power.enterDeepSleep(); // tidak return, ESP32 reset setelah bangun
       }
       break;
@@ -114,8 +124,10 @@ void loop() {
       Serial.printf("[Gesture] Terdeteksi: %s\n", gestureName(g));
 #endif
       leds.playForGesture(g);
+      oled.showGesture(gestureName(g));
 
       if (shouldTriggerAI(g)) {
+        oled.showMessage("Menghubungi AI...", "");
         if (ai.connectWifi()) {
           String response;
           if (ai.sendGesture(gestureName(g), response)) {
@@ -123,11 +135,15 @@ void loop() {
             Serial.print("[AI] Respons: ");
             Serial.println(response);
 #endif
+            oled.showAiResponse(response.c_str());
+            delay(3000); // beri waktu baca teks di OLED sebelum kembali idle
           } else {
 #if DEBUG_PRINT
-            Serial.println("[AI] Gagal mendapat respons (cek API key/koneksi).");
+            Serial.println("[AI] Gagal mendapat respons (cek koneksi/server AI lokal).");
 #endif
             leds.blinkError(2);
+            oled.showMessage("AI tidak merespons", "Cek server lokal");
+            delay(1500);
           }
           ai.disconnectWifi(); // matikan WiFi lagi untuk hemat daya
         } else {
@@ -135,12 +151,15 @@ void loop() {
           Serial.println("[AI] Gagal connect WiFi.");
 #endif
           leds.blinkError(2);
+          oled.showMessage("WiFi gagal konek", "");
+          delay(1500);
         }
       }
 
       classifier.reset();
       power.notifyActivity();
       state = State::IDLE;
+      oled.showIdle();
       break;
     }
   }

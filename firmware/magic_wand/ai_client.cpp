@@ -2,9 +2,16 @@
 #include "ai_client.h"
 #include "config.h"
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <HTTPClient.h>
-#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+
+static bool endsWith(const char *str, const char *suffix) {
+  size_t lenStr = strlen(str);
+  size_t lenSuf = strlen(suffix);
+  if (lenSuf > lenStr) return false;
+  return strcmp(str + (lenStr - lenSuf), suffix) == 0;
+}
 
 bool AiClient::connectWifi(uint32_t timeoutMs) {
   if (WiFi.status() == WL_CONNECTED) return true;
@@ -19,7 +26,10 @@ bool AiClient::connectWifi(uint32_t timeoutMs) {
     Serial.print(".");
 #endif
   }
-  return WiFi.status() == WL_CONNECTED;
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  MDNS.begin("magicwand"); // supaya resolusi ".local" hostname AI lokal bisa jalan
+  return true;
 }
 
 void AiClient::disconnectWifi() {
@@ -34,72 +44,60 @@ bool AiClient::isWifiConnected() {
 bool AiClient::sendGesture(const char *gesture, String &outResponse) {
   if (!isWifiConnected()) return false;
 
-  // Pilih endpoint/model/key sesuai AI_PROVIDER di config.h
-  const char *url;
-  const char *model;
-  const char *apiKey;
-
-  if (strcmp(AI_PROVIDER, "grok") == 0) {
-    url = GROK_API_URL;
-    model = GROK_MODEL;
-    apiKey = GROK_API_KEY;
-  } else {
-    url = OPENAI_API_URL;
-    model = OPENAI_MODEL;
-    apiKey = OPENAI_API_KEY;
+  // Resolusi host AI lokal: kalau berformat mDNS ("xxx.local"), query IP-nya dulu.
+  // Kalau IP statis atau hostname biasa, dipakai langsung (HTTPClient akan resolve sendiri).
+  String host = LOCAL_AI_HOST;
+  if (endsWith(LOCAL_AI_HOST, ".local")) {
+    String nameOnly = host.substring(0, host.length() - 6); // buang ".local"
+    IPAddress resolvedIp = MDNS.queryHost(nameOnly);
+    if (resolvedIp == IPAddress(0, 0, 0, 0)) {
+#if DEBUG_PRINT
+      Serial.printf("[AiClient] Gagal resolve mDNS host: %s\n", LOCAL_AI_HOST);
+#endif
+      return false;
+    }
+    host = resolvedIp.toString();
   }
 
-  WiFiClientSecure client;
-  client.setInsecure(); // MVP: skip cert validation. Untuk produksi, pin root CA yang sesuai.
+  String url = String(LOCAL_AI_USE_HTTPS ? "https://" : "http://") + host + ":" +
+               String(LOCAL_AI_PORT) + LOCAL_AI_PATH;
 
-  HTTPClient https;
-  if (!https.begin(client, url)) {
+  HTTPClient http;
+  if (!http.begin(url)) {
     return false;
   }
-  https.addHeader("Content-Type", "application/json");
-  https.addHeader("Authorization", String("Bearer ") + apiKey);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(10000); // AI lokal (speech-to-speech) bisa butuh waktu proses lebih lama
 
-  // Bangun payload chat-completions: prompt singkat berisi nama gesture yang terdeteksi
-  StaticJsonDocument<512> reqDoc;
-  reqDoc["model"] = model;
-  JsonArray messages = reqDoc.createNestedArray("messages");
-
-  JsonObject sys = messages.createNestedObject();
-  sys["role"] = "system";
-  sys["content"] =
-      "Kamu adalah AI di dalam tongkat sihir (magic wand). "
-      "User baru saja melakukan gestur bernama tertentu. "
-      "Balas singkat (maks 1-2 kalimat) dengan gaya seperti mantra/respons sihir yang sesuai gestur itu.";
-
-  JsonObject user = messages.createNestedObject();
-  user["role"] = "user";
-  user["content"] = String("Gestur terdeteksi: ") + gesture;
-
-  reqDoc["max_tokens"] = 60;
-
+  // Payload minimal: nama gesture yang terdeteksi. Sesuaikan key JSON ini dengan
+  // kontrak API server AI lokal kamu kalau berbeda.
+  StaticJsonDocument<128> reqDoc;
+  reqDoc["gesture"] = gesture;
   String reqBody;
   serializeJson(reqDoc, reqBody);
 
-  int httpCode = https.POST(reqBody);
+  int httpCode = http.POST(reqBody);
   if (httpCode != HTTP_CODE_OK) {
 #if DEBUG_PRINT
-    Serial.printf("[AiClient] HTTP error: %d\n", httpCode);
+    Serial.printf("[AiClient] HTTP error: %d (url=%s)\n", httpCode, url.c_str());
 #endif
-    https.end();
+    http.end();
     return false;
   }
 
-  String respBody = https.getString();
-  https.end();
+  String respBody = http.getString();
+  http.end();
 
-  StaticJsonDocument<1024> respDoc;
+  // Respons diharapkan: {"text": "..."} — sesuaikan key ini dengan output server AI lokal kamu
+  // kalau berbeda (misal server memisahkan field "reply" atau "message").
+  StaticJsonDocument<512> respDoc;
   DeserializationError err = deserializeJson(respDoc, respBody);
   if (err) {
     return false;
   }
 
-  const char *content = respDoc["choices"][0]["message"]["content"] | "";
-  outResponse = String(content);
+  const char *text = respDoc["text"] | "";
+  outResponse = String(text);
   outResponse.trim();
   return outResponse.length() > 0;
 }

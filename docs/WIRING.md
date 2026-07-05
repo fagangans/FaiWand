@@ -11,6 +11,11 @@
         MPU6050 VCC ───┤ 3V3               │
         MPU6050 GND ───┤ GND               │
                        │                   │
+        OLED   SCL  ───┤ GPIO22 (SCL, bus sama dgn MPU6050) │
+        OLED   SDA  ───┤ GPIO21 (SDA, bus sama dgn MPU6050) │
+        OLED   VCC  ───┤ 3V3               │
+        OLED   GND  ───┤ GND               │
+                       │                   │
         LED  R      ───┤ GPIO25 ──[220Ω]── │──> kaki R LED RGB
         LED  G      ───┤ GPIO26 ──[220Ω]── │──> kaki G LED RGB
         LED  B      ───┤ GPIO33 ──[220Ω]── │──> kaki B LED RGB
@@ -38,6 +43,18 @@
 | INT | GPIO27 | Untuk wake-on-motion dari deep sleep |
 | AD0 | GND (atau biarkan floating) | Set alamat I2C ke 0x68 (default) |
 
+### OLED SSD1306 0.96" (I2C)
+| OLED Pin | ESP32 Pin | Keterangan |
+|---|---|---|
+| VCC | 3V3 | |
+| GND | GND | |
+| SCL | GPIO22 | Bus I2C sama dengan MPU6050 — aman karena alamat beda (OLED 0x3C, MPU6050 0x68) |
+| SDA | GPIO21 | Bus I2C sama dengan MPU6050 |
+
+Tidak perlu resistor pull-up tambahan — modul GY-521 dan modul OLED umumnya sudah punya
+pull-up on-board masing-masing; kalau layar tidak stabil/garis-garis, coba lepas salah satu
+pull-up modul (cabut satu resistor 4.7kΩ di salah satu breakout) supaya tidak dobel.
+
 ### LED RGB
 - Kalau pakai **LED diskrit 4-kaki (common cathode)**: kaki common ke GND, tiap kaki R/G/B ke GPIO lewat resistor 220Ω.
 - Kalau **common anode**: kaki common ke 3V3, dan set `LED_ACTIVE_LOW true` di `config.h` supaya logika nyala/mati kebalik dengan benar.
@@ -56,3 +73,15 @@ Bisa pakai tombol **BOOT** bawaan board (GPIO0) — tidak perlu wiring tambahan,
 
 ## Diagram visual (disarankan)
 Untuk diagram visual grafis (bukan teks), gunakan [Wokwi](https://wokwi.com) — sudah ada simulator ESP32 + MPU6050 online, gratis, dan bisa langsung simulasikan sebagian logic (I2C, LED) sebelum wiring fisik. Cari template "ESP32 MPU6050" di Wokwi sebagai starting point lalu sesuaikan pin sesuai tabel di atas.
+
+## Jaringan: ESP32 <-> Server AI Lokal
+ESP32 dan server AI lokal (yang menjalankan speech-to-speech/speech-to-text) harus berada di
+**WiFi/LAN yang sama**. Tidak ada wiring fisik antara keduanya — komunikasi murni lewat WiFi
+(HTTP). Yang perlu disiapkan:
+1. Server AI lokal harus punya endpoint HTTP (default di firmware: `POST /gesture` port `5000`,
+   bisa diubah di `config.h`) yang menerima JSON `{"gesture": "Wave"}` dan membalas
+   `{"text": "..."}`.
+2. Isi `LOCAL_AI_HOST` di `secrets.h` dengan hostname mDNS server (`namaserver.local`) atau IP
+   statis-nya.
+3. Kalau pakai hostname mDNS, pastikan OS server AI lokal mendukung mDNS/Bonjour
+   (bawaan di macOS, perlu paket `avahi-daemon` di Linux, atau software "Bonjour" di Windows).

@@ -1,4 +1,5 @@
-// ai_client.h — kirim event gesture ke AI (OpenAI/Grok) dan terima respons teks
+// ai_client.h — kirim event gesture ke AI lokal (speech-to-speech/speech-to-text)
+// via HTTP POST JSON di jaringan lokal (LAN), dan terima respons teks untuk ditampilkan di OLED.
 #pragma once
 #include <Arduino.h>
 
@@ -9,7 +10,10 @@ class AiClient {
   void disconnectWifi();
   bool isWifiConnected();
 
-  // Kirim nama gesture ke API, dapatkan balasan teks (mis. respons "spell" dari AI).
-  // Return false kalau request gagal (WiFi mati, HTTP error, dsb) -> caller boleh fallback offline.
+  // Kirim nama gesture ke AI lokal, dapatkan balasan teks untuk ditampilkan di OLED.
+  // AI lokal yang menangani sendiri urusan speech-to-speech/TTS di sisi servernya;
+  // ESP32 hanya perlu teks ringkas untuk tampilan.
+  // Return false kalau request gagal (WiFi mati, server tidak terjangkau, dsb) -> caller
+  // boleh fallback tampilkan pesan offline di OLED.
   bool sendGesture(const char *gestureName, String &outResponse);
 };

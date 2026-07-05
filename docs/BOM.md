@@ -13,9 +13,9 @@
 | 9 | Kabel jumper female-female & male-female | Secukupnya | 5.000 | Untuk wiring prototipe di breadboard |
 | 10 | Breadboard mini (opsional, untuk prototyping) | 400/800 titik | 8.000 – 15.000 | Bisa dilepas setelah pindah ke solder permanen |
 | 11 | Casing/tongkat | Lihat docs/ENCLOSURE.md | Variatif | PVC pipe, 3D print, atau tongkat kayu bekas |
-| 12 | OLED SSD1306 0.96" I2C (opsional) | 128x64, alamat default 0x3C | 15.000 – 25.000 | Tidak dipakai di versi default proyek ini, tambahkan belakangan jika mau |
+| 12 | OLED SSD1306 0.96" I2C | 128x64, alamat default 0x3C | 15.000 – 25.000 | Dipakai untuk tampilkan nama gesture & respons teks dari AI lokal |
 
-**Total estimasi (tanpa OLED, tanpa casing 3D print):** sekitar **Rp 100.000 – 160.000**
+**Total estimasi (dengan OLED, tanpa casing 3D print):** sekitar **Rp 115.000 – 185.000**
 
 ## Catatan Pemilihan Komponen
 
