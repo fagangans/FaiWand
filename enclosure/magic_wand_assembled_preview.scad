@@ -146,8 +146,11 @@ module grip_bottom() {
             rotate([0, 90, 0])
                 cylinder(h = wall_thickness + 4, d = switch_hole_d);
 
-        translate([-oled_window_w/2, -outer_r(oled_window_z) - 1, oled_window_z])
-            cube([oled_window_w, outer_r(oled_window_z) + 2, oled_window_h]);
+        // Jendela OLED SENGAJA TIDAK dipotong di sini — layar OLED cuma
+        // menghadap 1 arah (dipasang menghadap ke grip_top), jendela cukup
+        // di satu shell saja (lihat grip_top() di bawah). Memotong di kedua
+        // shell cuma bikin lubang sia-sia di sisi belakang modul yang tidak
+        // ada tampilan apapun, dan melemahkan casing tanpa manfaat.
 
         for (z_pos = screw_z_positions) screw_hole_bottom(z_pos); // lubang baut dibor terakhir, tembus tab yang sudah solid
     }
