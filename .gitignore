@@ -10,3 +10,7 @@ firmware/magic_wand/secrets.h
 
 # Edge Impulse export sementara
 firmware/**/ei-*.zip
+
+# Server AI lokal (Node.js)
+server/node_modules/
+server/.env

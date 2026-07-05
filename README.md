@@ -55,6 +55,13 @@ lokal kamu untuk diproses lebih lanjut (mis. dijadikan trigger untuk speech-to-s
    dengan body `{"gesture": "Wave"}`, dan mengharapkan balasan JSON `{"text": "..."}`. Kalau
    endpoint/format server AI lokal kamu beda, sesuaikan di `config.h` (`LOCAL_AI_PORT`,
    `LOCAL_AI_PATH`) dan `ai_client.cpp` (key JSON request/response).
+
+   Implementasi siap pakai ada di `server/` (Node.js, tanpa API key — pakai AI4Chat +
+   speech-to-speech lokal via speaker). Jalankan:
+   ```
+   cd server && npm install && npm start
+   ```
+   Lihat `server/README.md` untuk detail.
 4. **Test awal (tanpa training model dulu)**: firmware default pakai fallback threshold
    sederhana (`USE_EDGE_IMPULSE_MODEL 0` di `gesture_classifier.h`) — cukup untuk memverifikasi
    wiring, LED, OLED, dan koneksi ke server AI lokal sebelum kamu invest waktu training model asli.
