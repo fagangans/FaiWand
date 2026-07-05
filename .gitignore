@@ -1,0 +1,12 @@
+# Kredensial WiFi & API key asli - jangan pernah commit
+firmware/magic_wand/secrets.h
+
+# Build artifacts Arduino/PlatformIO
+.pio/
+.vscode/
+*.bin
+*.elf
+*.hex
+
+# Edge Impulse export sementara
+firmware/**/ei-*.zip
