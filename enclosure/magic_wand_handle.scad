@@ -37,9 +37,9 @@ shaft_length     = 120;
 shaft_d          = 14;
 led_tip_d        = 10;
 
-tab_w             = 5;
-tab_len           = 5;
-tab_h             = 5;
+flange_out        = 6;   // seberapa jauh flange menjorok keluar dari permukaan (arah X)
+flange_deep       = 4;   // panjang flange di tiap sisi sambungan (Y)
+tab_h             = 5;   // tinggi flange (Z)
 screw_hole_clear  = 2.3;
 screw_hole_pilot  = 1.6;
 
@@ -86,37 +86,32 @@ module back_cap() {
     if (STYLE == 1) sphere(r = grip_d_back/2 * 0.3);
 }
 
-module screw_tab_bottom(z_pos) {
+module flange_bottom(z_pos) {
     r_here = outer_r(z_pos);
-    translate([-tab_w/2, -(r_here + tab_len), z_pos - tab_h/2])
-        cube([tab_w, tab_len + 0.05, tab_h]);
+    translate([r_here - 0.05, -(flange_deep + 0.5), z_pos - tab_h/2])
+        cube([flange_out + 0.05, flange_deep + 0.55, tab_h]);
 }
 
-module screw_tab_top(z_pos) {
+module flange_top(z_pos) {
     r_here = outer_r(z_pos);
-    translate([-tab_w/2, r_here - 0.05, z_pos - tab_h/2])
-        cube([tab_w, tab_len + 0.05, tab_h]);
+    translate([r_here - 0.05, -0.05, z_pos - tab_h/2])
+        cube([flange_out + 0.05, flange_deep + 0.55, tab_h]);
 }
 
-module screw_holes_pilot() {
-    for (z_pos = screw_z_positions) {
-        r_here = outer_r(z_pos);
-        translate([0, -(r_here + tab_len + 1), z_pos])
-            rotate([-90, 0, 0])
-                cylinder(h = tab_len + 2, d = screw_hole_pilot);
-    }
+module screw_hole_bottom(z_pos) {
+    r_here = outer_r(z_pos);
+    translate([r_here + flange_out/2, -(flange_deep + 1.5), z_pos])
+        rotate([-90, 0, 0])
+            cylinder(h = flange_deep + 2.5, d = screw_hole_pilot);
 }
 
-module screw_holes_clear() {
-    for (z_pos = screw_z_positions) {
-        r_here = outer_r(z_pos);
-        translate([0, r_here - 1, z_pos])
-            rotate([-90, 0, 0])
-                cylinder(h = tab_len + 2, d = screw_hole_clear);
-    }
+module screw_hole_top(z_pos) {
+    r_here = outer_r(z_pos);
+    translate([r_here + flange_out/2, -1, z_pos])
+        rotate([-90, 0, 0])
+            cylinder(h = flange_deep + 2, d = screw_hole_clear);
 }
 
-// ---- Body dasar: silinder tirus + rongga + cincin SUDAH terpotong duluan ----
 module ringed_hollow_body() {
     difference() {
         tapered_body(grip_d_back, grip_d_front, grip_length);
@@ -131,7 +126,7 @@ module grip_bottom() {
         union() {
             ringed_hollow_body();
             back_cap();
-            for (z_pos = screw_z_positions) screw_tab_bottom(z_pos); // tab ditambah TERAKHIR, solid, tidak kepotong cincin
+            for (z_pos = screw_z_positions) flange_bottom(z_pos); // tab ditambah TERAKHIR, solid, tidak kepotong cincin
         }
 
         translate([-grip_d_back/2 - 1, 0, -grip_d_back/2])
@@ -147,7 +142,7 @@ module grip_bottom() {
         translate([-oled_window_w/2, -outer_r(oled_window_z) - 1, oled_window_z])
             cube([oled_window_w, outer_r(oled_window_z) + 2, oled_window_h]);
 
-        screw_holes_pilot(); // lubang baut dibor terakhir, tembus tab yang sudah solid
+        for (z_pos = screw_z_positions) screw_hole_bottom(z_pos); // lubang baut dibor terakhir, tembus tab yang sudah solid
     }
 }
 
@@ -155,7 +150,7 @@ module grip_top() {
     difference() {
         union() {
             ringed_hollow_body();
-            for (z_pos = screw_z_positions) screw_tab_top(z_pos);
+            for (z_pos = screw_z_positions) flange_top(z_pos);
         }
 
         translate([-grip_d_back/2 - 1, -grip_d_back - 2, -1])
@@ -164,7 +159,7 @@ module grip_top() {
         translate([-oled_window_w/2, 0, oled_window_z])
             cube([oled_window_w, outer_r(oled_window_z) + 2, oled_window_h]);
 
-        screw_holes_clear();
+        for (z_pos = screw_z_positions) screw_hole_top(z_pos);
     }
 }
 
