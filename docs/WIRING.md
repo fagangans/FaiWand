@@ -30,6 +30,13 @@
         MAX98357A GND  ┤ GND               │
         MAX98357A GAIN ┤ (lihat catatan di bawah)                              │
                        │                   │
+        INMP441 SCK  ──┤ GPIO4             │  (I2S clock mikrofon)
+        INMP441 WS   ──┤ GPIO5             │  (I2S word select mikrofon)
+        INMP441 SD   ──┤ GPIO18            │  (I2S data IN dari mic ke ESP32)
+        INMP441 VDD  ──┤ 3V3               │
+        INMP441 GND  ──┤ GND               │
+        INMP441 L/R  ──┤ GND (pilih channel kiri)                              │
+                       │                   │
         Baterai LiPo ──┤ VIN / 5V (via TP4056 OUT+) │
                        │ GND (via TP4056 OUT-)       │
                        └───────────────────┘
@@ -75,8 +82,10 @@ pull-up modul (cabut satu resistor 4.7kΩ di salah satu breakout) supaya tidak d
 
 > ⚠️ **Penting soal power**: Banyak DevKit V1 versi murah regulatornya (AMS1117-3.3) butuh minimum ~4.5-5V di VIN untuk output stabil 3.3V. LiPo 3.7V (single cell) yang di-drop ke ~3.0V saat hampir habis bisa membuat ESP32 brownout. Solusi paling aman & murah: tambahkan **modul boost converter kecil (MT3608, ~3.000 IDR)** antara output TP4056 dan VIN ESP32, di-set ke 5V.
 
-### Push button (opsional, mode training/manual trigger)
-Bisa pakai tombol **BOOT** bawaan board (GPIO0) — tidak perlu wiring tambahan, cukup dibaca lewat `digitalRead(PIN_BUTTON)` (active LOW).
+### Push-to-talk (tombol BOOT, GPIO0)
+Bisa pakai tombol **BOOT** bawaan board (GPIO0) — tidak perlu wiring tambahan. Tahan tombol
+sambil bicara ke mikrofon, lepas untuk kirim rekaman ke AI. Dibaca lewat
+`digitalRead(PIN_BUTTON)` (active LOW, pakai `INPUT_PULLUP`).
 
 ### Speaker (I2S, MAX98357A + speaker mini)
 | MAX98357A Pin | ESP32 Pin | Keterangan |
@@ -95,10 +104,12 @@ Bisa pakai tombol **BOOT** bawaan board (GPIO0) — tidak perlu wiring tambahan,
 > sudah ada mampu suplai arus tambahan ini (~500mA-1A saat volume tinggi) — kalau baterai
 > kamu kecil (300-400mAh), daya tahan akan berkurang signifikan saat audio sering diputar.
 
-### Jendela speaker di enclosure
-Karena speaker perlu suara bisa keluar, enclosure gagang perlu **lubang-lubang kecil (grille)**
-di dekat posisi speaker dipasang. Ini belum ada di file `.scad` bawaan — perlu ditambahkan
-manual sesuai posisi speaker kamu pasang nanti.
+### Jendela speaker & mikrofon di enclosure
+Karena speaker perlu suara bisa keluar dan mikrofon perlu bisa "dengar" suara kamu, enclosure
+gagang perlu **lubang-lubang kecil (grille)** di dekat posisi masing-masing dipasang. File
+`enclosure/magic_wand_handle.scad` **sudah** menyertakan 1 lubang mikrofon kecil (lihat bagian
+`mic_hole_d` di parameter) — untuk speaker, sesuaikan/tambahkan grille manual sesuai posisi
+speaker kamu pasang nanti (biasanya di area yang sama dengan grip, dekat mulut pengguna).
 
 ## Diagram visual (disarankan)
 Untuk diagram visual grafis (bukan teks), gunakan [Wokwi](https://wokwi.com) — sudah ada simulator ESP32 + MPU6050 online, gratis, dan bisa langsung simulasikan sebagian logic (I2C, LED) sebelum wiring fisik. Cari template "ESP32 MPU6050" di Wokwi sebagai starting point lalu sesuaikan pin sesuai tabel di atas.
@@ -106,11 +117,12 @@ Untuk diagram visual grafis (bukan teks), gunakan [Wokwi](https://wokwi.com) —
 ## Jaringan: ESP32 <-> Server AI Lokal
 ESP32 dan server AI lokal (yang menjalankan speech-to-speech/speech-to-text) harus berada di
 **WiFi/LAN yang sama**. Tidak ada wiring fisik antara keduanya — komunikasi murni lewat WiFi
-(HTTP). Yang perlu disiapkan:
-1. Server AI lokal harus punya endpoint HTTP (default di firmware: `POST /gesture` port `5000`,
-   bisa diubah di `config.h`) yang menerima JSON `{"gesture": "Wave"}` dan membalas
-   `{"text": "..."}`.
-2. Isi `LOCAL_AI_HOST` di `secrets.h` dengan hostname mDNS server (`namaserver.local`) atau IP
-   statis-nya.
-3. Kalau pakai hostname mDNS, pastikan OS server AI lokal mendukung mDNS/Bonjour
-   (bawaan di macOS, perlu paket `avahi-daemon` di Linux, atau software "Bonjour" di Windows).
+(HTTP). Yang perlu disiapkan, server AI lokal harus punya 3 endpoint (sudah diimplementasikan
+di `server/gesture_server.js`, tinggal jalankan):
+1. `POST /gesture` — body `{"gesture": "Wave"}` → balas `{"text": ..., "audio_url": ...}`
+2. `POST /voice` — body raw WAV (push-to-talk) → balas `{"text": ..., "audio_url": ...}`
+3. `GET /audio/:file` — file mp3 hasil TTS untuk di-stream ESP32
+
+Isi `LOCAL_AI_HOST` di `secrets.h` dengan hostname mDNS server (`namaserver.local`) atau IP
+statis-nya. Kalau pakai hostname mDNS, pastikan OS server AI lokal mendukung mDNS/Bonjour
+(bawaan di macOS, perlu paket `avahi-daemon` di Linux, atau software "Bonjour" di Windows).

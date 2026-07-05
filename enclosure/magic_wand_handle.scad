@@ -1,10 +1,11 @@
 // ============================================================
-// AI Magic Wand — Gagang v6 (FIX: urutan operasi cincin & tab diperbaiki)
+// AI Magic Wand — Gagang v9 FINAL (+ lubang mikrofon push-to-talk)
 // STYLE = 0 -> Polos | 1 -> Elegan | 2 -> Kristal
 //
-// FIX dari v5: cincin dekoratif sekarang dipotong SEBELUM tab baut
-// ditambahkan (bukan sesudah) — jadi tab tidak lagi ikut terbelah oleh
-// alur cincin, benjolan baut jadi solid & rapi menyatu di posisi cincin.
+// Riwayat: v6 cincin dipotong sebelum flange; v7 flange dipindah ke garis
+// sambungan yang benar; v8 tambah countersink + jendela OLED cuma 1 sisi;
+// v9 tambah lubang akustik mikrofon (INMP441, push-to-talk) di grip_top,
+// di posisi terpisah dari jendela OLED & tab baut supaya tidak bentrok.
 //
 // BAUT: sekrup mainan/RC self-tapping ~2mm x 6-8mm, dijual di toko mainan
 // RC/elektronik/sparepart remote — tidak perlu mur.
@@ -25,6 +26,9 @@ switch_z         = 30;
 oled_window_w    = 26;
 oled_window_h    = 15;
 oled_window_z    = grip_length - 40;
+
+mic_hole_d       = 5;   // lubang akustik ke mikrofon INMP441 (mic dipasang di dalam, dekat lubang ini)
+mic_hole_z       = 12;  // posisi -- sengaja jauh dari ring/screw (25/50/75) & jendela OLED (52.5-67.5)
 
 grip_d_back      = 40;
 grip_d_front     = 30;
@@ -168,6 +172,12 @@ module grip_top() {
 
         translate([-oled_window_w/2, 0, oled_window_z])
             cube([oled_window_w, outer_r(oled_window_z) + 2, oled_window_h]);
+
+        // Lubang akustik mikrofon -- di sisi yang sama dengan OLED (front),
+        // posisi z terpisah supaya tidak tumpang tindih dengan jendela OLED/ring/screw.
+        translate([0, 0, mic_hole_z])
+            rotate([-90, 0, 0])
+                cylinder(h = outer_r(mic_hole_z) + 2, d = mic_hole_d);
 
         for (z_pos = screw_z_positions) screw_hole_top(z_pos);
     }

@@ -16,8 +16,12 @@
 | 12 | OLED SSD1306 0.96" I2C | 128x64, alamat default 0x3C | 15.000 – 25.000 | Dipakai untuk tampilkan nama gesture & respons teks dari AI lokal |
 | 13 | Amplifier I2S MAX98357A | Modul mono class-D, ~3W | 12.000 – 20.000 | Untuk memutar suara AI (TTS) yang di-streaming dari server, langsung di tongkat |
 | 14 | Speaker mini | 4Ω atau 8Ω, 2-3W, diameter ~20-28mm | 8.000 – 20.000 | Sesuaikan diameter dengan ruang yang tersedia di enclosure |
+| 15 | Mikrofon I2S INMP441 | Modul digital I2S | 15.000 – 25.000 | Untuk push-to-talk (bicara ke tongkat), lihat `docs/WIRING.md` |
 
-**Total estimasi (dengan OLED + speaker, tanpa casing 3D print):** sekitar **Rp 135.000 – 225.000**
+**Total estimasi (dengan OLED + speaker + mikrofon, tanpa casing 3D print):** sekitar **Rp 150.000 – 250.000**
+
+> Catatan: tombol **push-to-talk** memakai tombol **BOOT bawaan** ESP32 (item #8 di atas jadi
+> opsional/tidak wajib beli baru) — tahan tombol sambil bicara, lepas untuk kirim ke AI.
 
 ## Catatan Pemilihan Komponen
 
@@ -26,3 +30,4 @@
 - Kalau nanti mau upgrade ke **WS2812 (NeoPixel)** hanya butuh 1 GPIO data + resistor 300-500Ω di jalur data + kapasitor 100-1000uF di power — tapi kode `led_effects.cpp` perlu diganti untuk pakai library `Adafruit_NeoPixel` alih-alih `analogWrite`.
 - **TP4056 dengan proteksi** itu wajib, bukan opsional — versi tanpa proteksi bisa merusak baterai LiPo kalau over-discharge.
 - **MAX98357A** dipilih karena paling murah & gampang diintegrasikan (I2S langsung dari ESP32, tanpa DAC eksternal terpisah). Suara AI (hasil TTS server) di-streaming lewat WiFi dan dimainkan langsung di tongkat, bukan di komputer server — lihat `docs/WIRING.md` untuk pin I2S.
+- **INMP441** dipilih karena digital I2S (bukan analog), jadi tidak perlu ADC eksternal dan minim noise dibanding mic analog/electret biasa. Rekaman suara kamu (push-to-talk) di-kirim ke server untuk speech-to-text, BUKAN diproses di ESP32 — ESP32 cuma merekam ke buffer RAM lalu kirim.

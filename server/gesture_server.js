@@ -8,6 +8,9 @@
 //  Kontrak API dengan firmware ESP32 (ai_client.cpp):
 //    POST /gesture   body: {"gesture": "Wave"}
 //                     balas: {"text": "...", "audio_url": "/audio/xxx.mp3"}
+//    POST /voice      body: raw bytes WAV (Content-Type: audio/wav)
+//                     -> speech-to-text (Whisper lokal) -> AI jawab sesuai
+//                        isi omongan -> balas: {"text": ..., "audio_url": ...}
 //    GET  /health     cek status server
 //    GET  /audio/:file  file mp3 hasil TTS, di-stream & dimainkan ESP32
 //                       lewat speaker (I2S) di tongkat -- BUKAN diputar
@@ -22,6 +25,7 @@ import { writeFile, unlink, mkdir } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import { askFastest } from "./ai4chat.js";
+import { transcribeWav } from "./speech_to_text.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.GESTURE_PORT || 5000;
@@ -71,35 +75,12 @@ async function textToSpeechFile(text) {
   return filename;
 }
 
-const app = express();
-app.use(express.json());
-app.use("/audio", express.static(AUDIO_DIR));
-
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", ai: "AI4Chat + PublicAI (tanpa API key)", tts: "Microsoft Edge Neural TTS" });
-});
-
-// ---- POST /gesture — kontrak wajib dengan ai_client.cpp ----
-app.post("/gesture", async (req, res) => {
-  const gesture = req.body?.gesture;
-  if (!gesture || typeof gesture !== "string") {
-    return res.status(400).json({ error: "Field 'gesture' wajib diisi (string)." });
-  }
-
-  const prompt = GESTURE_PROMPTS[gesture] || DEFAULT_PROMPT;
-  console.log(`[FaiWand] Gesture diterima: "${gesture}"`);
-
-  let answer;
-  try {
-    answer = await askFastest(prompt);
-  } catch (err) {
-    console.error("[FaiWand] AI gagal:", err.message);
-    return res.status(502).json({ error: "AI tidak merespons." });
-  }
+// Tanya AI lalu generate audio TTS -- dipakai bersama oleh /gesture dan /voice.
+// Kalau TTS gagal, tetap balas teksnya saja (audio_url kosong).
+async function askAndSpeak(prompt) {
+  const answer = await askFastest(prompt); // lempar error kalau AI gagal, biar caller yang handle
 
   const text = trimForOled(answer);
-  console.log(`[FaiWand] Jawaban untuk OLED: "${text}"`);
-
   let audioUrl = "";
   try {
     const filename = await textToSpeechFile(answer);
@@ -109,11 +90,73 @@ app.post("/gesture", async (req, res) => {
     console.error("[FaiWand] TTS gagal, lanjut tanpa audio:", err.message);
   }
 
-  res.json({ text, audio_url: audioUrl });
+  return { text, audio_url: audioUrl };
+}
+
+const app = express();
+app.use("/audio", express.static(AUDIO_DIR));
+
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    ai: "AI4Chat + PublicAI (tanpa API key)",
+    tts: "Microsoft Edge Neural TTS",
+    stt: "Whisper-tiny lokal (@xenova/transformers)",
+  });
+});
+
+// ---- POST /gesture — kontrak wajib dengan ai_client.cpp ----
+app.post("/gesture", express.json(), async (req, res) => {
+  const gesture = req.body?.gesture;
+  if (!gesture || typeof gesture !== "string") {
+    return res.status(400).json({ error: "Field 'gesture' wajib diisi (string)." });
+  }
+
+  const prompt = GESTURE_PROMPTS[gesture] || DEFAULT_PROMPT;
+  console.log(`[FaiWand] Gesture diterima: "${gesture}"`);
+
+  try {
+    const reply = await askAndSpeak(prompt);
+    console.log(`[FaiWand] Jawaban untuk OLED: "${reply.text}"`);
+    res.json(reply);
+  } catch (err) {
+    console.error("[FaiWand] AI gagal:", err.message);
+    res.status(502).json({ error: "AI tidak merespons." });
+  }
+});
+
+// ---- POST /voice — push-to-talk: body raw WAV 16kHz/16-bit mono dari mic_recorder.cpp ----
+app.post("/voice", express.raw({ type: "audio/wav", limit: "5mb" }), async (req, res) => {
+  if (!req.body || req.body.length === 0) {
+    return res.status(400).json({ error: "Body audio/wav kosong." });
+  }
+
+  let transcript;
+  try {
+    transcript = await transcribeWav(req.body);
+    console.log(`[FaiWand] Transkrip suara: "${transcript}"`);
+  } catch (err) {
+    console.error("[FaiWand] Speech-to-text gagal:", err.message);
+    return res.status(502).json({ error: "Speech-to-text gagal." });
+  }
+
+  if (!transcript) {
+    return res.status(422).json({ error: "Tidak ada suara terdeteksi di rekaman." });
+  }
+
+  try {
+    const reply = await askAndSpeak(transcript);
+    console.log(`[FaiWand] Jawaban untuk OLED: "${reply.text}"`);
+    res.json(reply);
+  } catch (err) {
+    console.error("[FaiWand] AI gagal:", err.message);
+    res.status(502).json({ error: "AI tidak merespons." });
+  }
 });
 
 app.listen(PORT, () => {
   console.log(`\n🪄  FaiWand Gesture AI Server jalan di http://localhost:${PORT}`);
   console.log(`💬  POST http://localhost:${PORT}/gesture   body: {"gesture":"Wave"}`);
+  console.log(`🎙️  POST http://localhost:${PORT}/voice      body: raw WAV (push-to-talk)`);
   console.log(`🔊  Audio TTS di-stream ke tongkat via /audio/*.mp3 (dimainkan di speaker ESP32)\n`);
 });

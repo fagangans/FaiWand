@@ -20,4 +20,8 @@ class AiClient {
   // Return false kalau request gagal (WiFi mati, server tidak terjangkau, dsb) -> caller
   // boleh fallback tampilkan pesan offline di OLED.
   bool sendGesture(const char *gestureName, AiReply &outReply);
+
+  // Kirim rekaman suara (WAV 16kHz/16-bit mono) ke server AI lokal untuk
+  // speech-to-text -> AI jawab sesuai isi rekaman (bukan prompt tetap gesture).
+  bool sendVoice(const uint8_t *wavData, size_t wavSize, AiReply &outReply);
 };

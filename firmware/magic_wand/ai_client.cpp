@@ -13,6 +13,46 @@ static bool endsWith(const char *str, const char *suffix) {
   return strcmp(str + (lenStr - lenSuf), suffix) == 0;
 }
 
+// Resolusi host AI lokal: kalau berformat mDNS ("xxx.local"), query IP-nya dulu.
+// Kalau IP statis atau hostname biasa, dipakai langsung (HTTPClient akan resolve sendiri).
+// Return "" kalau gagal resolve.
+static String resolveBaseUrl() {
+  String host = LOCAL_AI_HOST;
+  if (endsWith(LOCAL_AI_HOST, ".local")) {
+    String nameOnly = host.substring(0, host.length() - 6); // buang ".local"
+    IPAddress resolvedIp = MDNS.queryHost(nameOnly);
+    if (resolvedIp == IPAddress(0, 0, 0, 0)) {
+#if DEBUG_PRINT
+      Serial.printf("[AiClient] Gagal resolve mDNS host: %s\n", LOCAL_AI_HOST);
+#endif
+      return "";
+    }
+    host = resolvedIp.toString();
+  }
+  return String(LOCAL_AI_USE_HTTPS ? "https://" : "http://") + host + ":" + String(LOCAL_AI_PORT);
+}
+
+// Parse respons JSON bersama {"text":..., "audio_url":...} dipakai oleh
+// sendGesture() dan sendVoice().
+static bool parseAiReply(const String &respBody, const String &baseUrl, AiReply &outReply) {
+  StaticJsonDocument<512> respDoc;
+  DeserializationError err = deserializeJson(respDoc, respBody);
+  if (err) return false;
+
+  const char *text = respDoc["text"] | "";
+  outReply.text = String(text);
+  outReply.text.trim();
+
+  const char *audioUrl = respDoc["audio_url"] | "";
+  outReply.audioUrl = String(audioUrl);
+  if (outReply.audioUrl.length() > 0 && !outReply.audioUrl.startsWith("http")) {
+    // server balas path relatif ("/audio/xxx.mp3") -> gabung dengan base url
+    outReply.audioUrl = baseUrl + outReply.audioUrl;
+  }
+
+  return outReply.text.length() > 0;
+}
+
 bool AiClient::connectWifi(uint32_t timeoutMs) {
   if (WiFi.status() == WL_CONNECTED) return true;
 
@@ -44,30 +84,14 @@ bool AiClient::isWifiConnected() {
 bool AiClient::sendGesture(const char *gesture, AiReply &outReply) {
   if (!isWifiConnected()) return false;
 
-  // Resolusi host AI lokal: kalau berformat mDNS ("xxx.local"), query IP-nya dulu.
-  // Kalau IP statis atau hostname biasa, dipakai langsung (HTTPClient akan resolve sendiri).
-  String host = LOCAL_AI_HOST;
-  if (endsWith(LOCAL_AI_HOST, ".local")) {
-    String nameOnly = host.substring(0, host.length() - 6); // buang ".local"
-    IPAddress resolvedIp = MDNS.queryHost(nameOnly);
-    if (resolvedIp == IPAddress(0, 0, 0, 0)) {
-#if DEBUG_PRINT
-      Serial.printf("[AiClient] Gagal resolve mDNS host: %s\n", LOCAL_AI_HOST);
-#endif
-      return false;
-    }
-    host = resolvedIp.toString();
-  }
-
-  String baseUrl = String(LOCAL_AI_USE_HTTPS ? "https://" : "http://") + host + ":" + String(LOCAL_AI_PORT);
+  String baseUrl = resolveBaseUrl();
+  if (baseUrl.length() == 0) return false;
   String url = baseUrl + LOCAL_AI_PATH;
 
   HTTPClient http;
-  if (!http.begin(url)) {
-    return false;
-  }
+  if (!http.begin(url)) return false;
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(10000); // AI lokal (speech-to-speech) bisa butuh waktu proses lebih lama
+  http.setTimeout(10000); // AI lokal bisa butuh waktu proses lebih lama
 
   // Payload minimal: nama gesture yang terdeteksi. Sesuaikan key JSON ini dengan
   // kontrak API server AI lokal kamu kalau berbeda.
@@ -88,24 +112,33 @@ bool AiClient::sendGesture(const char *gesture, AiReply &outReply) {
   String respBody = http.getString();
   http.end();
 
-  // Respons diharapkan: {"text": "...", "audio_url": "/audio/xxx.mp3"} — sesuaikan key
-  // ini dengan output server AI lokal kamu kalau berbeda.
-  StaticJsonDocument<512> respDoc;
-  DeserializationError err = deserializeJson(respDoc, respBody);
-  if (err) {
+  return parseAiReply(respBody, baseUrl, outReply);
+}
+
+bool AiClient::sendVoice(const uint8_t *wavData, size_t wavSize, AiReply &outReply) {
+  if (!isWifiConnected()) return false;
+  if (!wavData || wavSize == 0) return false;
+
+  String baseUrl = resolveBaseUrl();
+  if (baseUrl.length() == 0) return false;
+  String url = baseUrl + "/voice"; // endpoint khusus speech-to-text di server
+
+  HTTPClient http;
+  if (!http.begin(url)) return false;
+  http.addHeader("Content-Type", "audio/wav");
+  http.setTimeout(20000); // STT + generate AI + TTS bisa makan waktu lebih lama dari sekadar gesture
+
+  int httpCode = http.POST((uint8_t *)wavData, wavSize);
+  if (httpCode != HTTP_CODE_OK) {
+#if DEBUG_PRINT
+    Serial.printf("[AiClient] HTTP error (voice): %d (url=%s)\n", httpCode, url.c_str());
+#endif
+    http.end();
     return false;
   }
 
-  const char *text = respDoc["text"] | "";
-  outReply.text = String(text);
-  outReply.text.trim();
+  String respBody = http.getString();
+  http.end();
 
-  const char *audioUrl = respDoc["audio_url"] | "";
-  outReply.audioUrl = String(audioUrl);
-  if (outReply.audioUrl.length() > 0 && !outReply.audioUrl.startsWith("http")) {
-    // server balas path relatif ("/audio/xxx.mp3") -> gabung dengan base url
-    outReply.audioUrl = baseUrl + outReply.audioUrl;
-  }
-
-  return outReply.text.length() > 0;
+  return parseAiReply(respBody, baseUrl, outReply);
 }

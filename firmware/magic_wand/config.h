@@ -9,7 +9,7 @@
 #define PIN_LED_R          25
 #define PIN_LED_G          26
 #define PIN_LED_B          33
-#define PIN_BUTTON         0    // tombol BOOT bawaan, dipakai untuk mode training/manual wake
+#define PIN_BUTTON         0    // tombol BOOT bawaan, dipakai untuk push-to-talk (tahan+bicara+lepas)
 
 // LED aktif LOW jika pakai modul RGB common-anode. Set false jika common-cathode.
 #define LED_ACTIVE_LOW     false
@@ -31,6 +31,20 @@
 #define PIN_I2S_LRC         32
 #define PIN_I2S_DOUT        13
 #define SPEAKER_VOLUME      12   // skala 0-21 (library ESP32-audioI2S)
+
+// ---------- Mikrofon (I2S, INMP441) + push-to-talk ----------
+// Tahan PIN_BUTTON (tombol BOOT) sambil bicara, lepas untuk kirim. Audio
+// direkam ke RAM (WAV 16kHz/16-bit mono), dikirim ke server AI lokal untuk
+// speech-to-text, lalu server jawab pakai teks hasil transkrip itu -- BUKAN
+// lagi prompt tetap per gesture. ESP32 sendiri tidak melakukan STT apapun.
+#define MIC_ENABLED         true
+#define PIN_MIC_SCK         4     // I2S clock (BCLK) mikrofon
+#define PIN_MIC_WS          5     // I2S word select (LRC) mikrofon
+#define PIN_MIC_SD          18    // I2S data OUT dari mic ke ESP32
+#define MIC_SAMPLE_RATE_HZ  16000 // 16kHz cukup untuk speech-to-text, hemat RAM/bandwidth
+#define MIC_MAX_RECORD_MS   3000  // batas rekam maksimal (ms) -- ESP32 tanpa PSRAM RAM-nya
+                                  // terbatas, 3 detik @16kHz mono ~= 96KB, cukup aman
+#define MIC_MIN_RECORD_MS   400   // rekaman lebih pendek dari ini dianggap tidak sengaja/noise
 
 // ---------- Sampling gesture ----------
 #define SAMPLE_RATE_HZ         100     // frekuensi sampling accel/gyro

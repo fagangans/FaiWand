@@ -1,13 +1,14 @@
 {
   "name": "faiwand-gesture-server",
   "version": "1.0.0",
-  "description": "Server AI lokal untuk AI Magic Wand (FaiWand) — menerima gesture dari ESP32, balas teks untuk OLED, dan generate audio TTS yang di-stream & dimainkan lewat speaker di tongkat itu sendiri (speech-to-speech).",
+  "description": "Server AI lokal untuk AI Magic Wand (FaiWand) — terima gesture ATAU rekaman suara dari ESP32, transkrip suara (Whisper lokal), balas teks untuk OLED, dan generate audio TTS yang di-stream & dimainkan lewat speaker di tongkat itu sendiri (speech-to-speech dua arah).",
   "type": "module",
   "main": "gesture_server.js",
   "scripts": {
     "start": "node gesture_server.js"
   },
   "dependencies": {
+    "@xenova/transformers": "^2.17.2",
     "axios": "^1.4.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
