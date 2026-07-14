@@ -2,6 +2,7 @@
 // Diadaptasi dari Faganlenwy/WhatsApp/scrape/Ai4Chat.js untuk dipakai
 // oleh gesture_server.js di proyek AI Magic Wand (FaiWand).
 import axios from "axios";
+import { formatAi4ChatAnswer } from "./textFormatter.js";
 
 export async function ai4Chat(prompt) {
   const url = new URL("https://yw85opafq6.execute-api.us-east-1.amazonaws.com/default/boss_mode_15aug");
@@ -24,7 +25,7 @@ export async function ai4Chat(prompt) {
   const result = response.data?.trim?.() || null;
   if (!result) throw new Error("Empty AI response");
 
-  return result;
+  return formatAi4ChatAnswer(result);
 }
 
 // Fallback AI kalau AI4Chat sedang down
